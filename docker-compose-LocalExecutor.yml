@@ -1,5 +1,14 @@
 version: '3.7'
 services:
+    flask-nginx:
+        image: webapp-flask
+        build:
+            context: ../flask-nginx/
+            dockerfile: Dockerfile
+        depends_on:
+            - webserver
+        ports:
+            - "3000:80"
     postgres:
         image: postgres:9.6
         environment:
