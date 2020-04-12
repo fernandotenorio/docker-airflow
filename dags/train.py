@@ -52,7 +52,9 @@ def train_model():
 	response = urllib.request.urlopen(req, data)
 	response = response.read().decode('utf-8')
 	response = json.loads(response)
+	model_path = response['model_path']
 	print(response)
+	return response
 
 
 def validate_model(**kwargs):
@@ -75,9 +77,24 @@ def restore_model():
 	url = 'http://flask-nginx/prediction/api/v1.0/restore'
 
 
-def set_new_model():
+def set_new_model(**context):
 	print('Setting new model')
 	url = 'http://flask-nginx/prediction/api/v1.0/setnewmodel'
+
+	model_path = context['task_instance'].xcom_pull(task_ids='train_new_model')['model_path']
+	data = {'model_path': model_path}
+	data = json.dumps(data)
+	data = data.encode('utf-8')
+
+	req = urllib.request.Request(url)
+	req.add_header('Content-Type', 'application/json; charset=utf-8')
+	req.add_header('Content-Length', len(data))
+
+	response = urllib.request.urlopen(req, data)
+	response = response.read().decode('utf-8')
+	response = json.loads(response)
+	print(response)
+
 
  
 with DAG('train_api', description='Python DAG', schedule_interval='*/1 * * * *', start_date=datetime(2020,3,10), catchup=False) as dag:
@@ -86,7 +103,7 @@ with DAG('train_api', description='Python DAG', schedule_interval='*/1 * * * *',
 	proc_data_task = PythonOperator(task_id='proc_data', python_callable=proc_data)
 	train_model_task = PythonOperator(task_id='train_new_model', python_callable=train_model)
 	restore_model_task = PythonOperator(task_id='restore_previous_model', python_callable=train_model)
-	set_new_model_task = PythonOperator(task_id='set_new_model', python_callable=set_new_model)
+	set_new_model_task = PythonOperator(task_id='set_new_model', python_callable=set_new_model, provide_context=True)
 	end_task = DummyOperator(task_id='end_task', trigger_rule='none_failed')
 	branch = BranchPythonOperator(task_id='validate_new_model', python_callable=validate_model, provide_context=True)
 
